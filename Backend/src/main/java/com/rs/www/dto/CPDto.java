@@ -11,8 +11,15 @@ public class CPDto {
     private MultipartFile image;
     private String imageUrl;
     private String email;
+    private String status;
 
-    // Getters and Setters
+    public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	// Getters and Setters
     public Long getId() {
         return id;
     }

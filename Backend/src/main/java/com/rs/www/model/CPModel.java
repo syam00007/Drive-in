@@ -1,4 +1,4 @@
-// src/main/java/com/rs/www/model/CPModel.java
+
 package com.rs.www.model;
 
 import jakarta.persistence.Entity;
@@ -19,8 +19,30 @@ public class CPModel {
     private String email;
     private String mobileNumber;
     private String image;
+    private String status;
 
-    // Getters and Setters
+    public CPModel() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+	public CPModel(Long id, String counterName, String owner, String email, String mobileNumber, String image,
+			String status) {
+		super();
+		this.id = id;
+		this.counterName = counterName;
+		this.owner = owner;
+		this.email = email;
+		this.mobileNumber = mobileNumber;
+		this.image = image;
+		this.status = status;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
+	}
+	// Getters and Setters
     public Long getId() {
         return id;
     }

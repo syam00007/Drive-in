@@ -1,9 +1,5 @@
-// src/main/java/com/rs/www/service/CPService.java
 package com.rs.www.service;
 
-import com.rs.www.dto.CPDto;
-import com.rs.www.model.CPModel;
-import com.rs.www.repo.CPRepo;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,17 +7,35 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
+import com.rs.www.model.Category;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.rs.www.dto.CPDto;
+import com.rs.www.dto.StatusDto;
+import com.rs.www.model.CPModel;
+import com.rs.www.model.Login;
+import com.rs.www.repo.CPRepo;
+import com.rs.www.repo.CategoryRepo;
+import com.rs.www.repo.LoginRepo;
 
 @Service
 public class CPService {
 
     @Autowired
     private CPRepo repo;
+    
+    @Autowired 
+	LoginRepo loginrepo;
+    
+    @Autowired
+	CategoryRepo categoryrepo;
 
     // Load the upload directory and base URL from properties (with defaults)
     @Value("${app.upload.dir:${user.dir}/uploads}")
@@ -29,6 +43,14 @@ public class CPService {
 
     @Value("${app.image.base.url:http://localhost:9096/uploads/}")
     private String imageBaseUrl;
+   public List<StatusDto> counterStatus()
+   {
+	   List<CPModel> don=repo.findAll();
+	   return don.stream().map(counter -> new StatusDto(
+			   counter.getCounterName(),
+			   counter.getStatus()
+			   )).collect(Collectors.toList());
+   }
 
     public ResponseEntity<String> check() {
          return ResponseEntity.status(HttpStatus.OK).body("API is working!");
@@ -123,7 +145,6 @@ public class CPService {
               return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Profile not found");
          }
          CPModel model = optional.get();
-         // Delete the image file from disk if it exists.
          if (model.getImage() != null) {
               String imagePath = uploadDir + File.separator + model.getImage();
               File file = new File(imagePath);
@@ -134,4 +155,43 @@ public class CPService {
          repo.delete(model);
          return ResponseEntity.status(HttpStatus.OK).body("Profile deleted successfully");
     }
+
+	public String updateAvailability(long id, String status) {
+		Optional<CPModel> counter=repo.findById(id);
+		if(counter.isPresent())
+		{
+		     CPModel counterDetails=counter.get();
+		     counterDetails.setStatus(status);
+		     repo.save(counterDetails);
+		     return "counter is "+status;
+		}
+		return "counter not found";
+	}
+	
+	public ResponseEntity<String> addLogin(Login login) 
+	{
+        Login log = loginrepo.findByUsername(login.getUsername()); 
+        if (log != null) {
+            if (log.getPassword().equals(login.getPassword())) 
+            {
+                return ResponseEntity.status(200).body("Access Granted");
+            } else {
+                return ResponseEntity.status(403).body("Password not matched..!");
+            }
+        } else {
+            return ResponseEntity.status(404).body("Wrong username or not registered");
+  }
+    }
+
+	public ResponseEntity<?> getlogin(String username) {
+		Login login=loginrepo.findByUsername(username);
+		return ResponseEntity.status(200).body(login);
+	}
+
+	public ResponseEntity<?> getcategory() {
+		 List<Category> category= categoryrepo.findAll();
+		return ResponseEntity.status(200).body(category) ;
+	}
+	
+	
 }
