@@ -1,0 +1,49 @@
+.custom-navbar {
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+    padding: 0.8rem 0;
+  }
+  
+  .brand-text {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    background: linear-gradient(45deg, #ffc107, #fd7e14);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .nav-link {
+    margin: 0 15px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+  
+  .nav-link:hover {
+    transform: translateY(-2px);
+  }
+  
+  .modal-content {
+    border-radius: 15px;
+    border: none;
+  }
+
+  .password-input-container {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0;
+  z-index: 5;
+}
+
+.password-toggle:hover {
+  background: none !important;
+}
+
+.password-toggle:focus {
+  box-shadow: none !important;
+}

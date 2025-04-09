@@ -1,39 +1,34 @@
 package com.rs.www.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 @Entity
-@Table()
+@Table(name = "items")
 public class Items {
-    
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private long id;
-    
-   
-	private String name;
-    private int quantity;  // Changed to int
-    private double price;  // Changed to double
-    private String status;
 
-    @ManyToOne
-    @JoinColumn(name = "counter_id", nullable = false) 
-    @JsonBackReference
-    private CPModel counter; 
-    
-    @ManyToOne
-    @JoinColumn(name="category")
-    private Category category;
-    
-    public long getId() {
+	@Id
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	private long id;
+
+	private String name;
+
+	private String quantity;
+
+	private double price;
+	private String status; // Should be either "Available" or "Not Available"
+
+	@ManyToOne
+	@JoinColumn(name = "counter_id", nullable = false)
+	@JsonBackReference
+	private CPModel counter;
+
+	@ManyToOne
+	@JoinColumn(name="category")
+	private Category category;
+
+
+	public long getId() {
 		return id;
 	}
 
@@ -49,11 +44,11 @@ public class Items {
 		this.name = name;
 	}
 
-	public int getQuantity() {
+	public String getQuantity() {
 		return quantity;
 	}
 
-	public void setQuantity(int quantity) {
+	public void setQuantity(String quantity) {
 		this.quantity = quantity;
 	}
 
@@ -88,5 +83,4 @@ public class Items {
 	public void setCategory(Category category) {
 		this.category = category;
 	}
-
 }

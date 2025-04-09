@@ -1,8 +1,8 @@
 import Carousel from "react-bootstrap/Carousel";
 import a from './Images/project1.jpg';
-import b from './Images/project2.jpg';
-import c from './Images/project3.jpg';
-import d from './Images/project4.jpg';
+import b from './Images/x.jpg';
+import c from './Images/y.jpg';
+import d from './Images/z.jpg';
 
 function ImageCarousel() {
   return (

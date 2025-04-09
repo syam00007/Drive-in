@@ -1,4 +1,3 @@
-// src/main/java/com/rs/www/dto/CPDto.java
 package com.rs.www.dto;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -19,7 +18,7 @@ public class CPDto {
 	public void setStatus(String status) {
 		this.status = status;
 	}
-	// Getters and Setters
+
     public Long getId() {
         return id;
     }

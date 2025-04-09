@@ -1,11 +1,9 @@
 
 package com.rs.www.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import java.util.List;
 
 @Entity
 @Table(name = "counter_profiles")
@@ -36,6 +34,12 @@ public class CPModel {
 		this.image = image;
 		this.status = status;
 	}
+
+    @OneToMany(mappedBy = "counter")
+    @JsonIgnore
+    private List<Category> categories;
+
+
 	public String getStatus() {
 		return status;
 	}
@@ -79,4 +83,7 @@ public class CPModel {
     public void setImage(String image) {
         this.image = image;
     }
+
+    public List<Category> getCategories() { return categories; }
+    public void setCategories(List<Category> categories) { this.categories = categories; }
 }
