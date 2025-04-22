@@ -1,5 +1,4 @@
 package com.rs.www.dto;
-
 public class CategoryDTO {
     private String name;
     private Long counterId;

@@ -1,17 +1,17 @@
 // src/App.js
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import Home1 from "./Home1";
-import Home from "./Components/Home";
+import Home1 from "./Components/HomePage/Home1";
+import Home from "./Components/HomePage/Home";
 import CounterPage from "./Components/counters/CounterPage"; // New counter page with full functionality
 import CPList from "./Components/CountersList/CPList";
 import Settings from "./Components/settings/Settings";
 import Counteravailability from "./Components/counteravailability/counteravailability";
 import DetailsPage from "./Components/CountersList/DetailsPage";
-import Footer from "./Footer";
-import Main from "./Components/Mainpaje";
+import Footer from "./Components/HomePage/Footer";
+import Main from "./Components/HomePage/Mainpaje";
 import { SnackbarProvider } from "notistack";
-import Logout from "./Components/Logout";
+import Logout from "./Components/Logout/Logout";
 
 function App({ profiles }) {
   return (
@@ -25,7 +25,7 @@ function App({ profiles }) {
           <Route path="/admin" element={<Home />}>
             <Route index element={<Main />} />
             {/* Updated route for counters with all required features */}
-            <Route path="counters" element={<CounterPage />} />
+            <Route path="counters/:counterId" element={<CounterPage />} />
             <Route path="counterprofiles" element={<CPList />} />
             <Route
               path="counteravailability"

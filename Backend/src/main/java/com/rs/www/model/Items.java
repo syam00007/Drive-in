@@ -16,7 +16,7 @@ public class Items {
 	private String quantity;
 
 	private double price;
-	private String status; // Should be either "Available" or "Not Available"
+	private String status; 
 
 	@ManyToOne
 	@JoinColumn(name = "counter_id", nullable = false)

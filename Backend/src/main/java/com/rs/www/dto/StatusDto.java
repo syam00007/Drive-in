@@ -1,5 +1,4 @@
 package com.rs.www.dto;
-
 public class StatusDto {
 	private String counterName;
 	private String status;
@@ -24,6 +23,4 @@ public class StatusDto {
 		super();
 		// TODO Auto-generated constructor stub
 	}
-	
-
 }

@@ -1,6 +1,5 @@
 
 package com.rs.www.model;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.util.List;
@@ -21,7 +20,6 @@ public class CPModel {
 
     public CPModel() {
 		super();
-		// TODO Auto-generated constructor stub
 	}
 	public CPModel(Long id, String counterName, String owner, String email, String mobileNumber, String image,
 			String status) {
@@ -46,7 +44,6 @@ public class CPModel {
 	public void setStatus(String status) {
 		this.status = status;
 	}
-	// Getters and Setters
     public Long getId() {
         return id;
     }

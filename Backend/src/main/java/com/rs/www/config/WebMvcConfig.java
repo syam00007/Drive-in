@@ -1,6 +1,4 @@
-// src/main/java/com/rs/www/config/WebMvcConfig.java
 package com.rs.www.config;
-
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;

@@ -1,77 +1,35 @@
-import React, { useState, useEffect } from "react";
+// CounterPage.jsx
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import bgImage from "../Images/bg2.jpg";
 import {
   Box,
   Button,
   Typography,
+  Snackbar,
+  Alert,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Table,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  LinearProgress,
-  Chip,
-  useMediaQuery,
-  useTheme,
   MenuItem,
-  Tooltip,
-  Avatar,
-  Fade,
-  TablePagination,
-  Snackbar,
-  Alert,
 } from "@mui/material";
-import {
-  ArrowBack,
-  Edit,
-  Delete,
-  Refresh,
-  Search,
-  Category,
-  Fastfood,
-  CheckCircle,
-  Cancel,
-} from "@mui/icons-material";
-import { styled } from "@mui/material/styles";
-import { motion, AnimatePresence } from "framer-motion";
+import { ArrowBack, Settings } from "@mui/icons-material";
+import CategorySection from "./Sections/CategorySection";
+import ItemSection, { ItemDetailModal } from "./Sections/ItemSection";
+import { useParams, useNavigate } from "react-router-dom";
 
-// Constants
-const API_BASE = "http://localhost:9098/api/cp";
-const ROWS_PER_PAGE_OPTIONS = [5, 10, 25];
-const INITIAL_ITEM_STATE = {
-  id: null,
-  name: "",
-  price: "",
-  quantity: "",
-  status: "Available",
-};
+const API_BASE_URL = "http://localhost:9098/api/cp";
 
-// Styled Components
-const StyledCard = styled(Card)(({ theme }) => ({
-  transition: "transform 0.2s, box-shadow 0.2s",
-  "&:hover": {
-    transform: "translateY(-4px)",
-    boxShadow: theme.shadows[6],
-  },
-}));
-
-const AnimatedGridItem = motion(Grid);
-const TableRowAnimated = motion(TableRow);
+// Helper to update an item.
+const updateItemAPICall = (id, itemData) =>
+  axios.put(`${API_BASE_URL}/item/edit/${id}`, itemData);
 
 const CounterPage = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const { counterId } = useParams();
+  const navigate = useNavigate();
 
   const [state, setState] = useState({
     selectedCounter: null,
@@ -80,723 +38,604 @@ const CounterPage = () => {
     categories: [],
     items: [],
     loading: false,
-    error: null,
-    success: null,
-    searchQuery: "",
-    page: 0,
-    rowsPerPage: 10,
+    editMode: false,
+    selectedItem: null,
+    itemDetailOpen: false,
+    error: "",
+    success: "",
   });
 
-  const [modals, setModals] = useState({
-    category: { open: false, mode: "create" },
-    item: { open: false, mode: "create" },
-    deleteConfirm: { open: false, type: "", id: null },
+  // --- Modal state for Category (Add/Edit) ---
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryModalMode, setCategoryModalMode] = useState("add");
+  const [categoryForm, setCategoryForm] = useState({ id: null, name: "" });
+
+  // --- Modal state for Item (Add/Edit) ---
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [itemModalMode, setItemModalMode] = useState("add");
+  const [itemForm, setItemForm] = useState({
+    id: null,
+    name: "",
+    price: "",
+    quantity: "",
+    status: "Available",
   });
 
-  const [forms, setForms] = useState({
-    category: { id: null, name: "" },
-    item: INITIAL_ITEM_STATE,
-  });
-
-  // Fetch initial data: counters and categories
-  const fetchInitialData = async () => {
+  // ---------------- Data Fetching ----------------
+  const fetchInitialData = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, loading: true }));
       const [countersRes, categoriesRes] = await Promise.all([
-        axios.get(`${API_BASE}/all`),
-        axios.get(`${API_BASE}/category`),
+        axios.get(`${API_BASE_URL}/all`),
+        axios.get(`${API_BASE_URL}/category`),
       ]);
+      const fetchedCounters = countersRes.data || [];
       setState((prev) => ({
         ...prev,
-        counters: countersRes.data || [],
+        counters: fetchedCounters,
         categories: categoriesRes.data || [],
       }));
     } catch (error) {
-      handleError("Initial data fetch failed:", error);
+      setState((prev) => ({ ...prev, error: "Failed to load initial data" }));
     } finally {
       setState((prev) => ({ ...prev, loading: false }));
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [fetchInitialData]);
 
-  // Fetch all items for the selected counter.
-  // The endpoint returns all items regardless of category.
-  const fetchItems = async () => {
+  // Set the selected counter based on the URL parameter (or default to the first active one)
+  useEffect(() => {
+    if (state.counters.length > 0) {
+      if (counterId) {
+        const foundCounter = state.counters.find(
+          (counter) => String(counter.id) === counterId
+        );
+        if (foundCounter) {
+          if (foundCounter.status !== "Active") {
+            setState((prev) => ({
+              ...prev,
+              error: "Counter is inactive. Please activate it first.",
+              selectedCounter: null,
+              selectedCategory: null,
+              items: [],
+              editMode: false,
+            }));
+            return;
+          }
+          if (!state.selectedCounter || state.selectedCounter.id !== foundCounter.id) {
+            setState((prev) => ({
+              ...prev,
+              selectedCounter: foundCounter,
+              selectedCategory: null,
+              items: [],
+              editMode: false,
+              error: "",
+            }));
+          }
+        }
+      } else {
+        if (!state.selectedCounter) {
+          const defaultCounter = state.counters[0];
+          if (defaultCounter.status !== "Active") {
+            setState((prev) => ({
+              ...prev,
+              error: "Default counter is inactive. Please activate it first.",
+            }));
+            return;
+          }
+          setState((prev) => ({
+            ...prev,
+            selectedCounter: defaultCounter,
+            selectedCategory: null,
+            items: [],
+            editMode: false,
+            error: "",
+          }));
+          navigate(`/admin/counters/${defaultCounter.id}`);
+        }
+      }
+    }
+  }, [counterId, state.counters, state.selectedCounter, navigate]);
+
+  const fetchItems = useCallback(async () => {
     if (!state.selectedCounter) return;
     try {
       setState((prev) => ({ ...prev, loading: true }));
       const response = await axios.get(
-        `${API_BASE}/counter/${state.selectedCounter.id}`,
-        { headers: { "Content-Type": "application/json" } }
+        `${API_BASE_URL}/counter/${state.selectedCounter.id}`
       );
-      const itemsData = Array.isArray(response.data) ? response.data : [];
       setState((prev) => ({
         ...prev,
-        items: itemsData,
-        page: 0,
+        items: Array.isArray(response.data) ? response.data : [],
       }));
     } catch (error) {
-      console.error("Error fetching items:", error);
-      handleError("Failed to fetch items:", error);
+      setState((prev) => ({ ...prev, error: "Failed to fetch items" }));
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  }, [state.selectedCounter]);
+
+  useEffect(() => {
+    if (state.selectedCounter) {
+      fetchItems();
+    }
+  }, [state.selectedCounter, fetchItems]);
+
+  // ---------------- Handlers ----------------
+  // Toggle edit mode – note we now toggle rather than force true.
+  const handleToggleSettings = () =>
+    setState((prev) => ({ ...prev, editMode: !prev.editMode }));
+
+  const handleExitEditMode = () =>
+    setState((prev) => ({ ...prev, editMode: false, selectedCategory: null }));
+
+  const handleSelectCategory = (category) => {
+    if (!state.editMode) {
+      setState((prev) => ({ ...prev, selectedCategory: category }));
+    }
+  };
+
+  // Back arrow: clear selected category or exit edit mode.
+  const handleBack = () => {
+    if (state.selectedCategory) {
+      setState((prev) => ({ ...prev, selectedCategory: null }));
+    } else if (state.editMode) {
+      handleExitEditMode();
+    }
+  };
+
+  // ------------- API Calls for Category -------------
+  const addCategory = async (data) => {
+    try {
+      setState((prev) => ({ ...prev, loading: true }));
+      const response = await axios.post(`${API_BASE_URL}/category/new`, data);
+      setState((prev) => ({
+        ...prev,
+        categories: [...prev.categories, response.data],
+        success: "Category added successfully",
+      }));
+    } catch (error) {
+      setState((prev) => ({ ...prev, error: "Failed to add category" }));
     } finally {
       setState((prev) => ({ ...prev, loading: false }));
     }
   };
 
-  // Handlers
-
-  const handleCounterSelect = (counter) => {
-    if (counter.status !== "Active") {
-      handleError("Counter is inactive", { message: "Please activate counter first" });
-      return;
-    }
-    setState((prev) => ({
-      ...prev,
-      selectedCounter: counter,
-      selectedCategory: null,
-      items: [],
-    }));
-  };
-
-  const handleCategorySubmit = async () => {
-    const { mode } = modals.category;
-    const isEdit = mode === "edit";
-    const url = isEdit ? `/category/edit/${forms.category.id}` : "/category/new";
-
+  const editCategory = async (data) => {
     try {
       setState((prev) => ({ ...prev, loading: true }));
-      const payload = { ...forms.category, counterId: state.selectedCounter.id };
-      const { data } = await axios[isEdit ? "put" : "post"](`${API_BASE}${url}`, payload);
+      const response = await axios.put(
+        `${API_BASE_URL}/category/edit/${data.id}`,
+        data
+      );
       setState((prev) => ({
         ...prev,
-        categories: isEdit
-          ? prev.categories.map((cat) => (cat.id === data.id ? data : cat))
-          : [...prev.categories, data],
+        categories: prev.categories.map((cat) =>
+          cat.id === response.data.id ? response.data : cat
+        ),
+        success: "Category updated successfully",
       }));
-      handleSuccess(`Category ${isEdit ? "updated" : "created"} successfully`);
-      handleModalClose();
     } catch (error) {
-      handleError("Category operation failed:", error);
+      setState((prev) => ({ ...prev, error: "Failed to update category" }));
     } finally {
       setState((prev) => ({ ...prev, loading: false }));
     }
   };
 
-  const handleItemSubmit = async () => {
-    const isEdit = modals.item.mode === "edit";
-    const url = isEdit ? `/item/edit/${forms.item.id}` : "/item";
+  const deleteCategory = async (id) => {
+    // Get all items that belong to the category.
+    const itemsInCategory = state.items.filter(
+      (item) => item.category?.id === id
+    );
+
+    let proceed = true;
+    if (itemsInCategory.length > 0) {
+      proceed = window.confirm(
+        `Deleting this category will also delete its ${itemsInCategory.length} item${
+          itemsInCategory.length > 1 ? "s" : ""
+        }. Do you want to proceed?`
+      );
+    }
+    if (!proceed) return;
 
     try {
       setState((prev) => ({ ...prev, loading: true }));
-      const payload = {
-        ...forms.item,
-        price: parseFloat(forms.item.price),
+      // First delete all items under this category.
+      if (itemsInCategory.length > 0) {
+        await Promise.all(
+          itemsInCategory.map((item) =>
+            axios.delete(`${API_BASE_URL}/item/delete/${item.id}`)
+          )
+        );
+      }
+      // Now delete the category.
+      await axios.delete(`${API_BASE_URL}/category/delete/${id}`);
+      setState((prev) => ({
+        ...prev,
+        categories: prev.categories.filter((cat) => cat.id !== id),
+        items: prev.items.filter((item) => item.category?.id !== id),
+        success: "Category (and its items) deleted successfully",
+      }));
+    } catch (error) {
+      setState((prev) => ({ ...prev, error: "Failed to delete category" }));
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  // ------------- API Calls for Item -------------
+  const addItem = async (data) => {
+    try {
+      setState((prev) => ({ ...prev, loading: true }));
+      const response = await axios.post(`${API_BASE_URL}/item`, data);
+      setState((prev) => ({
+        ...prev,
+        items: [...prev.items, response.data],
+        success: "Item added successfully",
+      }));
+    } catch (error) {
+      setState((prev) => ({ ...prev, error: "Failed to add item" }));
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const editItem = async (data) => {
+    try {
+      setState((prev) => ({ ...prev, loading: true }));
+      const response = await updateItemAPICall(data.id, data);
+      setState((prev) => ({
+        ...prev,
+        items: prev.items.map((item) =>
+          item.id === response.data.id ? response.data : item
+        ),
+        success: "Item updated successfully",
+      }));
+    } catch (error) {
+      console.error("Error updating item:", error);
+      setState((prev) => ({ ...prev, error: "Failed to update item" }));
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const deleteItem = async (id) => {
+    try {
+      setState((prev) => ({ ...prev, loading: true }));
+      await axios.delete(`${API_BASE_URL}/item/delete/${id}`);
+      setState((prev) => ({
+        ...prev,
+        items: prev.items.filter((item) => item.id !== id),
+        success: "Item deleted successfully",
+      }));
+    } catch (error) {
+      setState((prev) => ({ ...prev, error: "Failed to delete item" }));
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  // ------------- Modal Handlers -------------
+  const handleOpenCategoryModal = (mode, category = { id: null, name: "" }) => {
+    setCategoryModalMode(mode);
+    setCategoryForm(category);
+    setCategoryModalOpen(true);
+  };
+
+  const handleCloseCategoryModal = () => {
+    setCategoryModalOpen(false);
+    setCategoryForm({ id: null, name: "" });
+  };
+
+  const handleCategoryModalSubmit = async () => {
+    const data = { counterId: state.selectedCounter.id, name: categoryForm.name };
+    if (categoryModalMode === "add") {
+      await addCategory(data);
+    } else {
+      await editCategory({ id: categoryForm.id, ...data });
+    }
+    handleCloseCategoryModal();
+  };
+
+  const handleOpenItemModal = (
+    mode,
+    item = { id: null, name: "", price: "", quantity: "", status: "Available" },
+    category = null
+  ) => {
+    setItemModalMode(mode);
+    if (mode === "edit") {
+      setItemForm({ ...item, category: item.category || state.selectedCategory });
+    } else {
+      setItemForm({
+        ...item,
+        category: category || state.selectedCategory,
         counter: state.selectedCounter,
-        category: state.selectedCategory,
-      };
-      const { data } = await axios[isEdit ? "put" : "post"](`${API_BASE}${url}`, payload);
-      setState((prev) => ({
-        ...prev,
-        items: isEdit
-          ? prev.items.map((item) => (item.id === data.id ? data : item))
-          : [...prev.items, data],
-      }));
-      handleSuccess(`Item ${isEdit ? "updated" : "created"} successfully`);
-      handleModalClose();
-    } catch (error) {
-      handleError("Item operation failed:", error);
-    } finally {
-      setState((prev) => ({ ...prev, loading: false }));
+      });
     }
+    setItemModalOpen(true);
   };
 
-  const handleDelete = async () => {
-    const entityType = modals.deleteConfirm.type;
-    const id = modals.deleteConfirm.id;
-    try {
-      setState((prev) => ({ ...prev, loading: true }));
-      await axios.delete(`${API_BASE}/${entityType}/delete/${id}`);
-      setState((prev) => ({
-        ...prev,
-        [entityType === "category" ? "categories" : "items"]:
-          prev[entityType === "category" ? "categories" : "items"].filter(
-            (item) => item.id !== id
-          ),
-      }));
-      handleSuccess(
-        `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} deleted`
-      );
-      handleModalClose();
-    } catch (error) {
-      handleError("Deletion failed:", error);
-    } finally {
-      setState((prev) => ({ ...prev, loading: false }));
+  const handleCloseItemModal = () => {
+    setItemModalOpen(false);
+    setItemForm({ id: null, name: "", price: "", quantity: "", status: "Available" });
+  };
+
+  const handleItemModalSubmit = async () => {
+    const payload = {
+      ...itemForm,
+      price: parseFloat(itemForm.price),
+      counter: state.selectedCounter,
+      category: itemForm.category || state.selectedCategory,
+    };
+    if (itemModalMode === "add") {
+      await addItem(payload);
+    } else {
+      await editItem(payload);
     }
+    handleCloseItemModal();
   };
 
-  // Notification and modal helper functions
-  const handleSuccess = (message) => {
-    setState((prev) => ({ ...prev, success: message }));
-    setTimeout(() => setState((prev) => ({ ...prev, success: null })), 3000);
-  };
-
-  const handleError = (logMessage, error) => {
-    console.error(logMessage, error);
+  const handleItemClick = (item) => {
     setState((prev) => ({
       ...prev,
-      error: error.response?.data?.message || "Operation failed",
+      selectedItem: item,
+      itemDetailOpen: true,
     }));
   };
 
-  const handleModalClose = () => {
-    setModals({
-      category: { open: false, mode: "create" },
-      item: { open: false, mode: "create" },
-      deleteConfirm: { open: false, type: "", id: null },
-    });
-    setForms({
-      category: { id: null, name: "" },
-      item: INITIAL_ITEM_STATE,
-    });
+  const closeItemDetailModal = () => {
+    setState((prev) => ({
+      ...prev,
+      itemDetailOpen: false,
+      selectedItem: null,
+    }));
   };
 
-  // Updated client-side filtering:
-  // Only show items that match the search string and whose category.id equals the selected category's id (if set).
-  const filteredItems = state.items.filter((item) => {
-    const searchFilter = item.name
-      .toLowerCase()
-      .includes(state.searchQuery.toLowerCase());
-    const categoryFilter = state.selectedCategory
-      ? item.category && item.category.id === state.selectedCategory.id
-      : true;
-    return searchFilter && categoryFilter;
-  });
+  const handleRefresh = () => {
+    // Clear data and re-fetch initial data.
+    setState((prev) => ({
+      ...prev,
+      selectedCounter: null,
+      categories: [],
+      items: [],
+      selectedCategory: null,
+    }));
+    fetchInitialData();
+  };
+
+  // ------------- Filtering Categories -------------
+  const filteredCategories = state.selectedCounter
+    ? state.categories.filter((cat) => {
+        const selectedId = String(state.selectedCounter.id);
+        let categoryCounterId = "";
+        if (cat.counter) {
+          categoryCounterId =
+            typeof cat.counter === "object" ? String(cat.counter.id) : String(cat.counter);
+        } else if (cat.counterId) {
+          categoryCounterId = String(cat.counterId);
+        }
+        return categoryCounterId === selectedId;
+      })
+    : [];
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
-      {/* Sidebar */}
-      <Sidebar
-        isMobile={isMobile}
-        counters={state.counters}
-        selectedCounter={state.selectedCounter}
-        onSelect={handleCounterSelect}
-        onRefresh={fetchInitialData}
-      />
-
-      {/* Main Content */}
-      <Box sx={{ flex: 1, p: isMobile ? 1 : 3 }}>
-        <Header
-          selectedCounter={state.selectedCounter}
-          selectedCategory={state.selectedCategory}
-          onBack={() => {
-            setState((prev) => ({
-              ...prev,
-              selectedCategory: null,
-              items: [],
-            }));
-            // Re-fetch items for the counter if needed.
-            fetchItems();
-          }}
-          onAdd={() =>
-            setModals((prev) => ({
-              ...prev,
-              [state.selectedCategory ? "item" : "category"]: { open: true, mode: "create" },
-            }))
-          }
-        />
-
-        {state.loading ? (
-          <LinearProgress sx={{ height: 2 }} />
-        ) : state.selectedCounter ? (
-          state.selectedCategory ? (
-            <ItemTable
-              items={filteredItems}
-              page={state.page}
-              rowsPerPage={state.rowsPerPage}
-              searchQuery={state.searchQuery}
-              onEdit={(item) => {
-                setForms((prev) => ({ ...prev, item }));
-                setModals((prev) => ({ ...prev, item: { open: true, mode: "edit" } }));
-              }}
-              onDelete={(id) =>
-                setModals((prev) => ({
-                  ...prev,
-                  deleteConfirm: { open: true, type: "item", id },
-                }))
-              }
-              onSearch={(e) =>
-                setState((prev) => ({ ...prev, searchQuery: e.target.value }))
-              }
-              onPageChange={(_, page) =>
-                setState((prev) => ({ ...prev, page }))
-              }
-              onRowsPerPageChange={(e) =>
-                setState((prev) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value, 10),
-                  page: 0,
-                }))
-              }
-            />
-          ) : (
-            <CategoryGrid
-              categories={state.categories.filter(
-                (cat) => cat.counter?.id === state.selectedCounter.id
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <Box sx={{ flex: 1, p: 3 }}>
+        {state.selectedCounter ? (
+          <>
+            {/* Header */}
+            <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+              {(state.editMode || state.selectedCategory) ? (
+                <IconButton onClick={handleBack}>
+                  <ArrowBack style={{ color: "#ffffff" }} />
+                </IconButton>
+              ) : (
+                <Box />
               )}
-              onSelect={(category) => {
-                setState((prev) => ({ ...prev, selectedCategory: category }));
-                // Once a category is selected, fetch items.
-                fetchItems();
-              }}
-              onEdit={(category) => {
-                setForms((prev) => ({ ...prev, category }));
-                setModals((prev) => ({
-                  ...prev,
-                  category: { open: true, mode: "edit" },
-                }));
-              }}
-              onDelete={(id) =>
-                setModals((prev) => ({
-                  ...prev,
-                  deleteConfirm: { open: true, type: "category", id },
-                }))
-              }
-            />
-          )
+              <Typography
+                variant="h4"
+                sx={{ flexGrow: 1, textAlign: "center" }}
+                style={{ fontFamily: "Bebas Neue, sans-serif", color: "#FE840E" }}
+              >
+                {state.editMode
+                  ? `Edit Mode: ${state.selectedCounter.counterName}`
+                  : ` ${state.selectedCounter.counterName}`}
+              </Typography>
+              {(!state.editMode && !state.selectedCategory) && (
+                <IconButton onClick={handleToggleSettings}>
+                  <Settings style={{ color: "#ffffff" }} />
+                </IconButton>
+              )}
+            </Box>
+
+            {/* Render Categories or Items */}
+            {!state.selectedCategory ? (
+              <CategorySection
+                categories={filteredCategories}
+                items={state.items}
+                editMode={state.editMode}
+                onSelectCategory={handleSelectCategory}
+                onEditCategory={(cat) => handleOpenCategoryModal("edit", cat)}
+                onDeleteCategory={(id) => deleteCategory(id)}
+                onAddCategory={() => handleOpenCategoryModal("add")}
+                onItemClick={handleItemClick}
+                onEditItem={(item) => handleOpenItemModal("edit", item)}
+                onDeleteItem={(id) => deleteItem(id)}
+                onAddItem={(cat) =>
+                  handleOpenItemModal(
+                    "add",
+                    { name: "", price: "", quantity: "", status: "Available" },
+                    cat
+                  )
+                }
+              />
+            ) : (
+              <ItemSection
+                items={state.items.filter((item) => {
+                  const selectedCatId = state.selectedCategory.id;
+                  return (
+                    (item.category && item.category.id === selectedCatId) ||
+                    item.categoryId === selectedCatId
+                  );
+                })}
+                editMode={state.editMode}
+                onItemClick={handleItemClick}
+                onEditItem={(item) => handleOpenItemModal("edit", item)}
+                onDeleteItem={(id) => deleteItem(id)}
+                onAddItem={(cat) =>
+                  handleOpenItemModal(
+                    "add",
+                    { name: "", price: "", quantity: "", status: "Available" },
+                    cat
+                  )
+                }
+                onToggleEditMode={handleToggleSettings}
+              />
+            )}
+          </>
         ) : (
-          <EmptyState
-            icon={<Category sx={{ fontSize: 64 }} />}
-            title="No Counter Selected"
-            subtitle="Select a counter from the sidebar to begin management"
-          />
+          <Typography variant="h6" align="center" sx={{ mt: 5, color: "#ffffff" }}>
+            Please select a counter to load categories and items.
+          </Typography>
         )}
       </Box>
 
-      {/* Modals */}
-      <CategoryModal
-        open={modals.category.open}
-        mode={modals.category.mode}
-        form={forms.category}
-        loading={state.loading}
-        onClose={handleModalClose}
-        onSubmit={handleCategorySubmit}
-        onChange={(e) =>
-          setForms((prev) => ({
-            ...prev,
-            category: { ...prev.category, name: e.target.value },
-          }))
-        }
+      <ItemDetailModal
+        open={state.itemDetailOpen}
+        item={state.selectedItem}
+        onClose={closeItemDetailModal}
       />
 
-      <ItemModal
-        open={modals.item.open}
-        mode={modals.item.mode}
-        form={forms.item}
-        loading={state.loading}
-        onClose={handleModalClose}
-        onSubmit={handleItemSubmit}
-        onChange={(field, value) =>
-          setForms((prev) => ({
-            ...prev,
-            item: { ...prev.item, [field]: value },
-          }))
-        }
-      />
+      <Snackbar
+        open={!!state.error}
+        autoHideDuration={3000}
+        onClose={() => setState((prev) => ({ ...prev, error: "" }))}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
 
-      <ConfirmationModal
-        open={modals.deleteConfirm.open}
-        onClose={handleModalClose}
-        onConfirm={handleDelete}
-        title={`Delete ${modals.deleteConfirm.type}?`}
-        content={`Are you sure you want to delete this ${modals.deleteConfirm.type}?`}
-      />
-
-      <Notification
-        open={!!state.error || !!state.success}
-        message={state.error || state.success}
-        severity={state.error ? "error" : "success"}
-        onClose={() =>
-          setState((prev) => ({ ...prev, error: null, success: null }))
-        }
-      />
-    </Box>
-  );
-};
-
-// Sub-components
-
-const Sidebar = ({ isMobile, counters, selectedCounter, onSelect, onRefresh }) => (
-  <Box
-    sx={{
-      width: isMobile ? 72 : 280,
-      p: 2,
-      borderRight: 1,
-      borderColor: "divider",
-      bgcolor: "background.paper",
-      transition: "width 0.3s ease",
-    }}
-  >
-    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-      {!isMobile && <Typography variant="h6">Counters</Typography>}
-      <Tooltip title="Refresh">
-        <IconButton onClick={onRefresh} size="small">
-          <Refresh fontSize={isMobile ? "small" : "medium"} />
-        </IconButton>
-      </Tooltip>
-    </Box>
-    {counters.map((counter) => (
-      <CounterButton
-        key={counter.id}
-        counter={counter}
-        isMobile={isMobile}
-        isSelected={selectedCounter?.id === counter.id}
-        onSelect={onSelect}
-      />
-    ))}
-  </Box>
-);
-
-const CounterButton = ({ counter, isMobile, isSelected, onSelect }) => {
-  const isActive = counter.status === "Active";
-  return (
-    <Tooltip key={counter.id} title={isMobile ? counter.counterName : ""} arrow>
-      <Button
-        fullWidth
-        variant={isSelected ? "contained" : "text"}
-        sx={{
-          mb: 1,
-          textTransform: "none",
-          justifyContent: "flex-start",
-          px: isMobile ? 1 : 2,
-          minWidth: 0,
-        }}
-        onClick={() => onSelect(counter)}
       >
-        <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
-          <Avatar
-            sx={{
-              width: 24,
-              height: 24,
-              bgcolor: isActive ? "success.main" : "error.main",
-              mr: isMobile ? 0 : 1.5,
-            }}
-          >
-            {isActive ? <CheckCircle fontSize="small" /> : <Cancel fontSize="small" />}
-          </Avatar>
-          {!isMobile && (
-            <Typography
-              sx={{
-                flexGrow: 1,
-                textAlign: "left",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {counter.counterName}
-            </Typography>
-          )}
-        </Box>
-      </Button>
-    </Tooltip>
-  );
-};
+        <Alert severity="error" variant="filled" onClose={() => setState((prev) => ({ ...prev, error: "" }))}>
+          {state.error}
+        </Alert>
+      </Snackbar>
 
-const Header = ({ selectedCounter, selectedCategory, onBack, onAdd }) => (
-  <Box sx={{ mb: 3 }}>
-    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-      {selectedCounter && (
-        <Tooltip title="Go back">
-          <IconButton onClick={onBack}>
-            <ArrowBack />
-          </IconButton>
-        </Tooltip>
-      )}
-      <Typography variant="h4" sx={{ flexGrow: 1, fontWeight: 600 }}>
-        {selectedCategory
-          ? `${selectedCategory.name} Items`
-          : selectedCounter?.counterName || "Select a Counter"}
-      </Typography>
-      {selectedCounter && (
-        <Fade in={!!selectedCounter}>
-          <Button
-            variant="contained"
-            startIcon={selectedCategory ? <Fastfood /> : <Category />}
-            onClick={onAdd}
-          >
-            {selectedCategory ? "New Item" : "New Category"}
-          </Button>
-        </Fade>
-      )}
-    </Box>
-    {/* When on the category page (counter selected but no category chosen),
-        display the "Menu" heading below the counter heading */}
-    {selectedCounter && !selectedCategory && (
-      <Typography variant="h5" sx={{ mt: 1, fontWeight: 400 }}>
-        Menu
-      </Typography>
-    )}
-  </Box>
-);
+      <Snackbar
+        open={!!state.success}
+        autoHideDuration={3000}
+        onClose={() => setState((prev) => ({ ...prev, success: "" }))}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
 
-const CategoryGrid = ({ categories, onSelect, onEdit, onDelete }) => (
-  <Grid container spacing={3}>
-    <AnimatePresence>
-      {categories.map((category) => (
-        <AnimatedGridItem
-          key={category.id}
-          item
-          xs={12}
-          sm={6}
-          md={4}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          layout
+      >
+        <Alert severity="success"  variant="filled" onClose={() => setState((prev) => ({ ...prev, success: "" }))}>
+          {state.success}
+        </Alert>
+      </Snackbar>
+
+      {/* Category Modal */}
+      <Dialog open={categoryModalOpen} onClose={handleCloseCategoryModal}>
+        <DialogTitle
+          style={{
+            fontFamily: "Kanit, sans-serif",
+            fontWeight: 500,
+            fontStyle: "normal",
+            fontSize: "25px",
+          }}
         >
-          <StyledCard>
-            <CardContent sx={{ cursor: "pointer" }} onClick={() => onSelect(category)}>
-              <Typography variant="h6" gutterBottom>
-                {category.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {category.items?.length || "Click to load items"}
-              </Typography>
-            </CardContent>
-            <CardActions sx={{ justifyContent: "flex-end" }}>
-              <IconButton onClick={() => onEdit(category)}>
-                <Edit fontSize="small" />
-              </IconButton>
-              <IconButton onClick={() => onDelete(category.id)}>
-                <Delete fontSize="small" color="error" />
-              </IconButton>
-            </CardActions>
-          </StyledCard>
-        </AnimatedGridItem>
-      ))}
-    </AnimatePresence>
-  </Grid>
-);
+          {categoryModalMode === "add" ? "Add Category" : "Edit Category"}
+        </DialogTitle>
+        <DialogContent style={{ paddingTop: "5px" }}>
+          <TextField
+            label="Category Name"
+            fullWidth
+            value={categoryForm.name}
+            onChange={(e) =>
+              setCategoryForm((prev) => ({ ...prev, name: e.target.value }))
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCategoryModal}>Cancel</Button>
+          <Button onClick={handleCategoryModalSubmit} variant="contained">
+            {categoryModalMode === "add" ? "Add" : "Update"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-const ItemTable = ({
-  items,
-  page,
-  rowsPerPage,
-  searchQuery,
-  onEdit,
-  onDelete,
-  onSearch,
-  onPageChange,
-  onRowsPerPageChange,
-}) => (
-  <TableContainer component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-      <TextField
-        variant="outlined"
-        size="small"
-        placeholder="Search items..."
-        value={searchQuery}
-        InputProps={{
-          startAdornment: <Search color="action" />,
-          sx: { borderRadius: 4 },
-        }}
-        onChange={onSearch}
-        sx={{ width: 300 }}
-      />
+      {/* Item Modal */}
+      <Dialog open={itemModalOpen} onClose={handleCloseItemModal}>
+        <DialogTitle
+          style={{
+            fontFamily: "Kanit, sans-serif",
+            fontWeight: 500,
+            fontStyle: "normal",
+            fontSize: "30px",
+          }}
+        >
+          {itemModalMode === "add" ? "Add Item" : "Edit Item"}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Item Name"
+            fullWidth
+            value={itemForm.name}
+            onChange={(e) =>
+              setItemForm((prev) => ({ ...prev, name: e.target.value }))
+            }
+            margin="normal"
+          />
+          <TextField
+            label="Price"
+            fullWidth
+            type="number"
+            value={itemForm.price}
+            onChange={(e) =>
+              setItemForm((prev) => ({ ...prev, price: e.target.value }))
+            }
+            margin="normal"
+          />
+          <TextField
+            label="Quantity"
+            fullWidth
+            value={itemForm.quantity}
+            onChange={(e) =>
+              setItemForm((prev) => ({ ...prev, quantity: e.target.value }))
+            }
+            margin="normal"
+          />
+          <TextField
+            label="Status"
+            fullWidth
+            select
+            value={itemForm.status}
+            onChange={(e) =>
+              setItemForm((prev) => ({ ...prev, status: e.target.value }))
+            }
+            margin="normal"
+          >
+            <MenuItem value="Available">Available</MenuItem>
+            <MenuItem value="Out of Stock">Out of Stock</MenuItem>
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseItemModal}>Cancel</Button>
+          <Button onClick={handleItemModalSubmit} variant="contained">
+            {itemModalMode === "add" ? "Add" : "Update"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
-    <Table sx={{ minWidth: 650 }}>
-      <TableHead>
-        <TableRow>
-          <TableCell sx={{ fontWeight: 600 }}>Item</TableCell>
-          <TableCell align="right" sx={{ fontWeight: 600 }}>Price</TableCell>
-          <TableCell sx={{ fontWeight: 600 }}>Quantity</TableCell>
-          <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-          <TableCell align="center" sx={{ fontWeight: 600 }}>Actions</TableCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        <AnimatePresence>
-          {items
-            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-            .map((item) => (
-              <TableRowAnimated
-                key={item.id}
-                hover
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <TableCell>{item.name}</TableCell>
-                <TableCell align="right">${item.price.toFixed(2)}</TableCell>
-                <TableCell>{item.quantity}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={item.status}
-                    color={item.status === "Available" ? "success" : "error"}
-                    variant="outlined"
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <IconButton onClick={() => onEdit(item)} color="primary">
-                    <Edit />
-                  </IconButton>
-                  <IconButton onClick={() => onDelete(item.id)} color="error">
-                    <Delete />
-                  </IconButton>
-                </TableCell>
-              </TableRowAnimated>
-            ))}
-        </AnimatePresence>
-      </TableBody>
-    </Table>
-    <TablePagination
-      rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
-      component="div"
-      count={items.length}
-      rowsPerPage={rowsPerPage}
-      page={page}
-      onPageChange={onPageChange}
-      onRowsPerPageChange={onRowsPerPageChange}
-    />
-  </TableContainer>
-);
-
-const CategoryModal = ({ open, mode, form, loading, onClose, onSubmit, onChange }) => (
-  <Dialog open={open} onClose={onClose}>
-    <DialogTitle>{mode === "edit" ? "Edit Category" : "New Category"}</DialogTitle>
-    <DialogContent sx={{ minWidth: 400, pt: 2 }}>
-      <TextField
-        autoFocus
-        fullWidth
-        label="Category Name"
-        value={form.name}
-        onChange={onChange}
-        disabled={loading}
-      />
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={loading}>
-        Cancel
-      </Button>
-      <Button variant="contained" onClick={onSubmit} disabled={!form.name || loading}>
-        {mode === "edit" ? "Update" : "Create"}
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
-
-const ItemModal = ({ open, mode, form, loading, onClose, onSubmit, onChange }) => (
-  <Dialog open={open} onClose={onClose}>
-    <DialogTitle>{mode === "edit" ? "Edit Item" : "New Item"}</DialogTitle>
-    <DialogContent
-      sx={{
-        minWidth: 400,
-        pt: 2,
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-      }}
-    >
-      <TextField
-        autoFocus
-        fullWidth
-        label="Item Name"
-        value={form.name}
-        onChange={(e) => onChange("name", e.target.value)}
-        disabled={loading}
-      />
-      <TextField
-        fullWidth
-        label="Price"
-        type="number"
-        value={form.price}
-        onChange={(e) => onChange("price", e.target.value)}
-        disabled={loading}
-        InputProps={{ startAdornment: "$" }}
-      />
-      <TextField
-        fullWidth
-        label="Quantity (e.g., half, full, etc.)"
-        value={form.quantity}
-        onChange={(e) => onChange("quantity", e.target.value)}
-        disabled={loading}
-      />
-      <TextField
-        select
-        fullWidth
-        label="Status"
-        value={form.status}
-        onChange={(e) => onChange("status", e.target.value)}
-        disabled={loading}
-      >
-        <MenuItem value="Available">Available</MenuItem>
-        <MenuItem value="Not Available">Not Available</MenuItem>
-      </TextField>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onClose} disabled={loading}>
-        Cancel
-      </Button>
-      <Button
-        variant="contained"
-        onClick={onSubmit}
-        disabled={!form.name || !form.price || loading}
-      >
-        {mode === "edit" ? "Update" : "Create"}
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
-
-const ConfirmationModal = ({ open, onClose, onConfirm, title, content }) => (
-  <Dialog open={open} onClose={onClose}>
-    <DialogTitle>{title}</DialogTitle>
-    <DialogContent>{content}</DialogContent>
-    <DialogActions>
-      <Button onClick={onClose}>Cancel</Button>
-      <Button variant="contained" color="error" onClick={onConfirm}>
-        Confirm Delete
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
-
-const EmptyState = ({ icon, title, subtitle }) => (
-  <Box
-    sx={{
-      display: "flex",
-      height: "70vh",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      textAlign: "center",
-      color: "text.secondary",
-    }}
-  >
-    {icon}
-    <Typography variant="h6" sx={{ mt: 2 }}>
-      {title}
-    </Typography>
-    <Typography variant="body1" sx={{ mt: 1 }}>
-      {subtitle}
-    </Typography>
-  </Box>
-);
-
-const Notification = ({ open, message, severity, onClose }) => (
-  <Snackbar
-    open={open}
-    autoHideDuration={6000}
-    onClose={onClose}
-    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-  >
-    <Alert onClose={onClose} severity={severity} sx={{ width: "100%" }}>
-      {message}
-    </Alert>
-  </Snackbar>
-);
+  );
+};
 
 export default CounterPage;

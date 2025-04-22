@@ -1,6 +1,7 @@
 // CPForm.jsx
 import React, { useState, useEffect } from "react";
-import { Button, TextField, Box, Typography, Container } from "@mui/material";
+import { Button, TextField, Box, Typography, Container, IconButton } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
 import { useSnackbar } from "notistack";
 
@@ -8,7 +9,7 @@ const API_BASE_URL = "http://localhost:9098/api/cp";
 
 const CPForm = ({ profile, onSuccess, onCancel }) => {
   const isEdit = Boolean(profile);
-  const { enqueueSnackbar } = useSnackbar();
+  const { enqueueSnackbar, closeSnackbar } = useSnackbar();
 
   // Form field states (with initial values if in edit mode)
   const [owner, setOwner] = useState(profile?.owner || "");
@@ -134,7 +135,12 @@ const CPForm = ({ profile, onSuccess, onCancel }) => {
     if (Object.values(validationResults).some(error => error !== "")) {
       enqueueSnackbar("Please fix all errors before submitting", { 
         variant: "error",
-        anchorOrigin: { vertical: "top", horizontal: "right" }
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+        action: (key) => (
+          <IconButton onClick={() => closeSnackbar(key)} color="inherit">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        )
       });
       return;
     }
@@ -163,14 +169,24 @@ const CPForm = ({ profile, onSuccess, onCancel }) => {
         `Counter profile ${isEdit ? "updated" : "added"} successfully!`,
         { 
           variant: "success",
-          anchorOrigin: { vertical: "top", horizontal: "right" }
+          anchorOrigin: { vertical: "top", horizontal: "right" },
+          action: (key) => (
+            <IconButton onClick={() => closeSnackbar(key)} color="inherit">
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          )
         }
       );
       onSuccess();
     } catch (error) {
       enqueueSnackbar("Submission failed. Please try again.", { 
         variant: "error",
-        anchorOrigin: { vertical: "top", horizontal: "right" }
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+        action: (key) => (
+          <IconButton onClick={() => closeSnackbar(key)} color="inherit">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        )
       });
       console.error("Submission error:", error);
     }
@@ -178,14 +194,13 @@ const CPForm = ({ profile, onSuccess, onCancel }) => {
 
   return (
     <Container maxWidth="sm" sx={{ mb:2 }}>
-<Typography
-  variant="h4"
-  align="center"
-  gutterBottom
-  style={{ padding: '15px', fontFamily: 'Arial, sans-serif',fontWeight:'bold', color:"DodgerBlue",}}
->
-        {isEdit ? "Edit Counter Profile" :  "Create Counter Profile"}
-        
+      <Typography
+        variant="h5"
+        align="center"
+        gutterBottom
+        style={{ padding: '15px', fontFamily: 'Arial, sans-serif', fontWeight:'bold' }}
+      >
+        {isEdit ? "Edit Counter Profile" : "Create Counter Profile"}
       </Typography>
       <form onSubmit={handleSubmit}>
         <Box mb={2}>

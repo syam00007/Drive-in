@@ -1,76 +1,114 @@
 import React from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import IconButton from "@mui/material/IconButton";
+import {
+  Box,
+  Typography,
+  IconButton,
+  Button,
+  Grid,
+  Container,
+  Paper,
+} from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
 
 const DetailsPage = ({ profiles }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Try to get the profile from navigation state or fallback to the profiles prop
   const profileFromState = location.state?.profile;
   const profileFromProps =
-    profiles && profiles.find((profile) => profile.id.toString() === id);
+    profiles?.find((profile) => profile.id.toString() === id);
   const profile = profileFromState || profileFromProps;
 
-  if (!profile) {
-    return (
-      <Box sx={{ padding: 2 }}>
-        <IconButton onClick={() => navigate(-1)} sx={{ mb: 1 }}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h6">Profile not found</Typography>
-        <Typography variant="body1">
-          Please return to the previous page or try again.
-        </Typography>
-      </Box>
-    );
-  }
-
-  // Construct the image URL if available.
   const baseImageUrl = "http://localhost:9098/uploads/";
-  const imageUrl = profile.imageUrl
+  const imageUrl = profile?.imageUrl
     ? profile.imageUrl
-    : profile.image
+    : profile?.image
     ? `${baseImageUrl}${profile.image}`
     : null;
 
+  if (!profile) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 6 }}>
+        <Button
+          variant="outlined"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(-1)}
+          sx={{ mb: 2 }}
+        >
+          Go Back
+        </Button>
+        <Paper elevation={3} sx={{ p: 4, textAlign: "center" }}>
+          <Typography variant="h6" gutterBottom>
+            Profile Not Found
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            The profile you're looking for does not exist. Please return and try
+            again.
+          </Typography>
+        </Paper>
+      </Container>
+    );
+  }
+
   return (
-    <Box sx={{ padding: 2 }}>
-      <IconButton onClick={() => navigate(-1)} sx={{ mb: 2 }}>
+    <Box sx={{ position: "relative" }}>
+      <IconButton
+        onClick={() => navigate(-1)}
+        sx={{
+          position: "absolute",
+          top: 20, // vertical offset
+          left: 20, // horizontal offset
+          zIndex: 1000,
+        }}
+      >
         <ArrowBackIcon />
       </IconButton>
+      <Container maxWidth="md" sx={{ py: 6 }}>
+        <Paper elevation={4} sx={{ p: 4, borderRadius: 3 }}>
+          <Grid container spacing={4}>
+            {imageUrl && (
+              <Grid item xs={12} md={5}>
+                <Box
+                  component="img"
+                  src={imageUrl}
+                  alt={profile.counterName}
+                  sx={{
+                    width: "100%",
+                    height: "auto",
+                    maxHeight: 400,
+                    objectFit: "cover",
+                    borderRadius: 2,
+                    boxShadow: 3,
+                  }}
+                />
+              </Grid>
+            )}
 
-      {/* Display image if available */}
-      {imageUrl && (
-        <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-          <img
-            src={imageUrl}
-            alt="Profile"
-            style={{
-              maxWidth: "100%",
-              maxHeight: "400px",
-              borderRadius: "4px",
-            }}
-          />
-        </Box>
-      )}
+            <Grid item xs={12} md={7}>
+              <Typography variant="h4" component="h1" gutterBottom>
+                {profile.counterName}
+              </Typography>
 
-      <Typography variant="h4" component="h2" gutterBottom>
-        {profile.counterName}
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 1 }}>
-        <strong>Owner:</strong> {profile.owner}
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 1 }}>
-        <strong>Mobile:</strong> {profile.mobileNumber}
-      </Typography>
-      <Typography variant="body1">
-        <strong>Email:</strong> {profile.email}
-      </Typography>
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body1" sx={{ mb: 1 }}>
+                  <strong>Owner:</strong> {profile.owner}
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 1 }}>
+                  <strong>Mobile:</strong> {profile.mobileNumber}
+                </Typography>
+                <Typography variant="body1"sx={{ mb: 1 }}>
+                  <strong>Email:</strong> {profile.email}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Status:</strong> {profile.status}
+                </Typography>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Container>
     </Box>
   );
 };
